@@ -19,8 +19,27 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
-    // 1. Check User model
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      import('@nestjs/common').then(m => { throw new m.BadRequestException('Invalid email format'); });
+      // or we can just import BadRequestException at top
+    }
+
     let user = await this.userModel.findOne({ email });
+    let admin: any = null;
+
+    if (!user) {
+      admin = await this.adminModel.findOne({ email });
+      if (!admin) {
+        import('@nestjs/common').then(m => { throw new m.NotFoundException('Email not registered'); });
+      }
+    }
+
+    const account = user || admin;
+    if (account && (account as any).isActive === false) {
+      import('@nestjs/common').then(m => { throw new m.ForbiddenException('Account disabled'); });
+    }
+
     if (user && user.password) {
       if (await bcrypt.compare(pass, user.password)) {
         const roles = await this.rbacService.getUserRoles(String(user.tenantId), String(user._id));
@@ -44,24 +63,25 @@ export class AuthService {
           permissions,
           phone: user.phone,
         };
+      } else {
+        import('@nestjs/common').then(m => { throw new m.UnauthorizedException('Incorrect password'); });
       }
     }
 
-    // 2. Check Admin model fallback
-    const admin = await this.adminModel.findOne({ email });
     if (admin && admin.password) {
       if (await bcrypt.compare(pass, admin.password)) {
-        // Find default tenant for fallback
         return {
           id: admin._id,
           email: admin.email,
           name: admin.name,
-          tenantId: new Types.ObjectId('60d5ecb8b39d1b2ab8f9df01'), // Default seeded tenant ID
+          tenantId: new Types.ObjectId('60d5ecb8b39d1b2ab8f9df01'),
           role: 'Super Admin',
           userType: 'admin',
-          permissions: [], // Admins have hardcoded global access in older logic
+          permissions: [],
           phone: admin.phone,
         };
+      } else {
+        import('@nestjs/common').then(m => { throw new m.UnauthorizedException('Incorrect password'); });
       }
     }
 

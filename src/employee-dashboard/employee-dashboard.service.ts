@@ -264,22 +264,42 @@ export class EmployeeDashboardService {
   }
 
   async exportReportCSV(tenantId: string, startDateStr: string, timeframe: string, projectId: string | undefined): Promise<string> {
-    const reportData = await this.getReport(tenantId, startDateStr, timeframe, projectId);
+    const tId = new Types.ObjectId(tenantId);
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(startDate);
 
-    let csv = `REPORT SUMMARY (Start: ${reportData.startDate}, Timeframe: ${reportData.timeframe})\n\n`;
+    if (timeframe === 'monthly') {
+      endDate.setMonth(startDate.getMonth() + 1);
+    } else if (timeframe === 'yearly') {
+      endDate.setFullYear(startDate.getFullYear() + 1);
+    } else {
+      endDate.setDate(startDate.getDate() + 7); // weekly default
+    }
 
-    csv += `TASK SUMMARY\n`;
-    csv += `Total Tasks Created,Completed Tasks,In Progress Tasks,Average Progress (%)\n`;
-    csv += `${reportData.taskSummary.total},${reportData.taskSummary.completed},${reportData.taskSummary.inProgress},${reportData.taskSummary.avgProgress}%\n\n`;
+    const periodTaskFilter: any = {
+      tenantId: tId,
+      createdAt: { $gte: startDate, $lt: endDate },
+    };
+    if (projectId) periodTaskFilter.projectId = new Types.ObjectId(projectId);
 
-    csv += `CLIENT QUERY SUMMARY\n`;
-    csv += `Queries Raised,Queries Resolved,Avg Resolution Time (Hours)\n`;
-    csv += `${reportData.querySummary.totalRaised},${reportData.querySummary.totalResolved},${reportData.querySummary.avgResolutionTime} hrs\n\n`;
+    // Need to populate assignees to get names. We can lean() for perf.
+    const periodTasks = await this.taskModel.find(periodTaskFilter).populate('assignees', 'name').exec();
 
-    csv += `EMPLOYEE PERFORMANCE SHEET\n`;
-    csv += `Employee Name,Employee Email,Assigned Tasks,Completed Tasks,Average Task Progress (%)\n`;
-    reportData.employeeRows.forEach((row: any) => {
-      csv += `"${row.name}","${row.email}",${row.totalTasks},${row.completedTasks},${row.avgProgress}%\n`;
+    let csv = `TASKS REPORT (Start: ${startDateStr}, Timeframe: ${timeframe})\n\n`;
+    csv += `Title,Description,Status,Priority,Estimated Hours,Progress (%),Assignees,Deadline\n`;
+
+    periodTasks.forEach((t: any) => {
+      const title = `"${(t.title || '').replace(/"/g, '""')}"`;
+      const desc = `"${(t.description || '').replace(/"/g, '""')}"`;
+      const status = `"${t.status || ''}"`;
+      const priority = `"${t.priority || ''}"`;
+      const estHours = t.estimatedHours || 0;
+      const progress = t.progress || 0;
+      const assigneesStr = t.assignees && Array.isArray(t.assignees) ? t.assignees.map((a: any) => a.name || '').join(', ') : '';
+      const assignees = `"${assigneesStr.replace(/"/g, '""')}"`;
+      const deadline = t.deadline ? `"${new Date(t.deadline).toLocaleDateString()}"` : '""';
+
+      csv += `${title},${desc},${status},${priority},${estHours},${progress},${assignees},${deadline}\n`;
     });
 
     return csv;
