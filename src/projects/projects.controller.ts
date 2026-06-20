@@ -12,40 +12,35 @@ export class ProjectsController {
   @RequirePermission('tasks', 'tasks.create')
   @Post()
   async createProject(@Req() req: any, @Body() body: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new BadRequestException('Invalid user context');
-    return this.projectsService.createProject(String(tenantId), body);
+    if (!req.user?.tenantId) throw new BadRequestException('Invalid user context');
+    return this.projectsService.createProject(req.user, body);
   }
 
   @RequirePermission('tasks', 'tasks.view')
   @Get()
   async getProjects(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new BadRequestException('Invalid user context');
-    return this.projectsService.getProjects(String(tenantId));
+    if (!req.user?.tenantId) throw new BadRequestException('Invalid user context');
+    return this.projectsService.getProjects(req.user);
   }
 
   @RequirePermission('tasks', 'tasks.view')
   @Get(':id')
   async getProjectById(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new BadRequestException('Invalid user context');
-    return this.projectsService.getProjectById(String(tenantId), id);
+    if (!req.user?.tenantId) throw new BadRequestException('Invalid user context');
+    return this.projectsService.getProjectById(req.user, id);
   }
 
   @RequirePermission('tasks', 'tasks.edit')
   @Put(':id')
   async updateProject(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new BadRequestException('Invalid user context');
-    return this.projectsService.updateProject(String(tenantId), id, body);
+    if (!req.user?.tenantId) throw new BadRequestException('Invalid user context');
+    return this.projectsService.updateProject(req.user, id, body);
   }
 
   @RequirePermission('tasks', 'tasks.delete')
   @Patch(':id/archive')
   async archiveProject(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new BadRequestException('Invalid user context');
-    return this.projectsService.archiveProject(String(tenantId), id);
+    if (!req.user?.tenantId) throw new BadRequestException('Invalid user context');
+    return this.projectsService.archiveProject(req.user, id);
   }
 }
